@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciador de Arquivos</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --surface: #141720;
+      --surface2: #1c2030;
+      --border: #252a3a;
+      --accent: #4fffb0;
+      --accent2: #4f9fff;
+      --danger: #ff4f6a;
+      --warn: #ffb84f;
+      --text: #e8eaf0;
+      --muted: #5a6080;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--surface);
+    }
+
+    .logo {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+
+    .logo span { color: var(--text); }
+
+    .header-stats {
+      margin-left: auto;
+      display: flex;
+      gap: 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .header-stats b { color: var(--accent); }
+
+    /* ── Layout ── */
+    .app {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      flex: 1;
+      height: calc(100vh - 62px);
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-top {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .search-wrap {
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.7rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 0.85rem;
+      pointer-events: none;
+    }
+
+    #searchInput {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 0.75rem 0.5rem 2rem;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #searchInput:focus { border-color: var(--accent); }
+    #searchInput::placeholder { color: var(--muted); }
+
+    .btn-new {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      background: var(--accent);
+      color: #0d0f14;
+      border: none;
+      border-radius: 6px;
+      padding: 0.55rem 1rem;
+      font-family: var(--sans);
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-new:hover { background: #7fffc4; transform: translateY(-1px); }
+    .btn-new:active { transform: translateY(0); }
+
+    .file-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+
+    .file-list::-webkit-scrollbar { width: 4px; }
+    .file-list::-webkit-scrollbar-track { background: transparent; }
+    .file-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0.75rem;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.12s;
+      margin-bottom: 2px;
+      border: 1px solid transparent;
+    }
+
+    .file-item:hover { background: var(--surface2); }
+    .file-item.active { background: var(--surface2); border-color: var(--accent); }
+
+    .file-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .file-meta { flex: 1; min-width: 0; }
+
+    .file-name {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-item.active .file-name { color: var(--accent); }
+
+    .file-date {
+      font-size: 0.62rem;
+      color: var(--muted);
+      margin-top: 2px;
+      font-family: var(--mono);
+    }
+
+    .file-size-badge {
+      font-size: 0.6rem;
+      font-family: var(--mono);
+      color: var(--muted);
+      background: var(--bg);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .empty-list {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .empty-list .empty-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+
+    /* ── Main panel ── */
+    .main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .toolbar {
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--surface);
+    }
+
+    .file-title-display {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent);
+      flex: 1;
+    }
+
+    .file-title-display.placeholder { color: var(--muted); font-weight: 400; }
+
+    .toolbar-actions { display: flex; gap: 0.5rem; margin-left: auto; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:hover { background: var(--surface2); border-color: var(--muted); }
+    .btn-save { background: var(--accent); color: #0d0f14; border-color: var(--accent); }
+    .btn-save:hover { background: #7fffc4; border-color: #7fffc4; }
+    .btn-delete { color: var(--danger); border-color: #ff4f6a30; }
+    .btn-delete:hover { background: #ff4f6a15; border-color: var(--danger); }
+    .btn-export { color: var(--accent2); border-color: #4f9fff30; }
+    .btn-export:hover { background: #4f9fff15; border-color: var(--accent2); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
+
+    /* ── Editor area ── */
+    .editor-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #editor {
+      flex: 1;
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      line-height: 1.7;
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+    }
+
+    #editor::placeholder { color: var(--muted); }
+    #editor::-webkit-scrollbar { width: 5px; }
+    #editor::-webkit-scrollbar-track { background: transparent; }
+    #editor::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .editor-footer {
+      padding: 0.5rem 2rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      background: var(--surface);
+    }
+
+    .editor-footer span b { color: var(--accent); }
+
+    /* ── Welcome screen ── */
+    .welcome {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      color: var(--muted);
+      padding: 2rem;
+    }
+
+    .welcome-icon { font-size: 3.5rem; }
+    .welcome h2 { font-size: 1.1rem; color: var(--text); font-weight: 700; }
+    .welcome p { font-size: 0.82rem; text-align: center; max-width: 280px; line-height: 1.6; }
+    .welcome kbd {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1rem 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text);
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      width: 90%;
+      max-width: 420px;
+      animation: modalIn 0.18s ease-out;
+    }
+
+    @keyframes modalIn {
+      from { transform: scale(0.95) translateY(10px); opacity: 0; }
+      to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent); }
+
+    .modal label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 0.35rem;
+    }
+
+    .modal input, .modal textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.6rem 0.75rem;
+      border-radius: 7px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 0.85rem;
+    }
+
+    .modal input:focus, .modal textarea:focus { border-color: var(--accent); }
+    .modal textarea { resize: vertical; min-height: 120px; }
+    .modal input::placeholder, .modal textarea::placeholder { color: var(--muted); }
+
+    .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem; }
+
+    .btn-modal-cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-family: var(--sans);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-modal-cancel:hover { background: var(--surface2); color: var(--text); }
+
+    .btn-modal-ok {
+      background: var(--accent);
+      border: none;
+      color: #0d0f14;
+      padding: 0.5rem 1.2rem;
+      border-radius: 6px;
+      font-family: var(--sans);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-modal-ok:hover { background: #7fffc4; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.7rem 1.1rem;
+      font-size: 0.82rem;
+      font-family: var(--mono);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      z-index: 200;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.25s ease;
+      max-width: 320px;
+    }
+
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { border-color: var(--accent); color: var(--accent); }
+    #toast.error { border-color: var(--danger); color: var(--danger); }
+    #toast.warn { border-color: var(--warn); color: var(--warn); }
+
+    /* ── Confirm dialog ── */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 150;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .confirm-overlay.show { display: flex; }
+
+    .confirm-box {
+      background: var(--surface);
+      border: 1px solid var(--danger);
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 90%;
+      max-width: 360px;
+      animation: modalIn 0.15s ease-out;
+    }
+
+    .confirm-box h4 { color: var(--danger); margin-bottom: 0.5rem; font-size: 0.95rem; }
+    .confirm-box p { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.5; }
+    .confirm-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+    .btn-confirm-yes {
+      background: var(--danger);
+      border: none;
+      color: white;
+      padding: 0.5rem 1.1rem;
+      border-radius: 6px;
+      font-family: var(--sans);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-confirm-yes:hover { background: #ff6b82; }
+
+    @media (max-width: 700px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { height: 260px; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">GERENCIADOR<span> DE ARQUIVO</span></div>
+    <div class="header-stats">
+      <span>arquivos: <b id="statTotal">0</b></span>
+      <span>tamanho total: <b id="statSize">0 B</b></span>
+    </div>
+  </header>
+
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input type="text" id="searchInput" placeholder="Buscar arquivos..." autocomplete="off">
+        </div>
+        <button class="btn-new" onclick="openNewModal()">
+          + Novo Arquivo
+        </button>
+      </div>
+      <div class="file-list" id="fileList"></div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main" id="mainPanel">
+      <!-- Welcome -->
+      <div class="welcome" id="welcomeScreen">
+        <div class="welcome-icon">🗂</div>
+        <h2>Gerenciador de Arquivos</h2>
+        <p>Selecione um arquivo na lista ou crie um novo para começar a editar.</p>
+        <p style="margin-top:0.5rem">Pressione <kbd>N</kbd> para criar um novo arquivo rapidamente.</p>
+      </div>
+
+      <!-- Editor (hidden until file is selected) -->
+      <div id="editorPanel" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+        <div class="toolbar">
+          <div class="file-title-display" id="fileTitleDisplay">sem título</div>
+          <div class="toolbar-actions">
+            <button class="btn btn-export" id="btnExport" onclick="exportFile()">↓ Exportar .txt</button>
+            <button class="btn btn-delete" id="btnDelete" onclick="confirmDelete()">🗑 Excluir</button>
+            <button class="btn btn-save" id="btnSave" onclick="saveCurrentFile()">✓ Salvar</button>
+          </div>
+        </div>
+        <div class="editor-wrap">
+          <textarea id="editor" placeholder="Comece a digitar o conteúdo do arquivo..."></textarea>
+        </div>
+        <div class="editor-footer">
+          <span>linhas: <b id="statLines">0</b></span>
+          <span>palavras: <b id="statWords">0</b></span>
+          <span>caracteres: <b id="statChars">0</b></span>
+          <span>tamanho: <b id="statFileSize">0 B</b></span>
+          <span id="saveStatus" style="margin-left:auto">salvo</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Novo Arquivo -->
+  <div class="modal-overlay" id="newModal" onclick="closeNewModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3>+ Novo Arquivo</h3>
+      <label for="newFileName">Nome do arquivo</label>
+      <input type="text" id="newFileName" placeholder="Ex: meu-documento" autocomplete="off" maxlength="80">
+      <label for="newFileContent">Conteúdo inicial (opcional)</label>
+      <textarea id="newFileContent" placeholder="Digite o conteúdo inicial..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-modal-cancel" onclick="closeNewModal()">Cancelar</button>
+        <button class="btn-modal-ok" onclick="createFile()">Criar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete -->
+  <div class="confirm-overlay" id="confirmOverlay" onclick="closeConfirm()">
+    <div class="confirm-box" onclick="event.stopPropagation()">
+      <h4>Excluir arquivo?</h4>
+      <p id="confirmMsg">Esta ação não pode ser desfeita.</p>
+      <div class="confirm-actions">
+        <button class="btn-modal-cancel" onclick="closeConfirm()">Cancelar</button>
+        <button class="btn-confirm-yes" onclick="deleteCurrentFile()">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script>
+    const STORAGE_KEY = 'filemgr_files';
+    let files = {};        // { name: { content, createdAt, updatedAt } }
+    let currentFile = null;
+    let unsaved = false;
+    let toastTimer = null;
+
+    // ── Storage ──
+    function loadStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        files = raw ? JSON.parse(raw) : {};
+      } catch { files = {}; }
+    }
+
+    function saveStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+    }
+
+    // ── Utilities ──
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    }
+
+    function slugify(name) {
+      return name.trim().replace(/[^a-zA-Z0-9À-ÿ\-_.() ]/g, '').trim();
+    }
+
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = (type === 'success' ? '✓ ' : type === 'error' ? '✕ ' : '⚠ ') + msg;
+      t.className = 'show ' + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+    }
+
+    // ── Render file list ──
+    function renderFileList(filter = '') {
+      const listEl = document.getElementById('fileList');
+      const names = Object.keys(files).filter(n =>
+        !filter || n.toLowerCase().includes(filter.toLowerCase())
+      ).sort((a, b) => new Date(files[b].updatedAt) - new Date(files[a].updatedAt));
+
+      if (names.length === 0) {
+        listEl.innerHTML = `<div class="empty-list">
+          <div class="empty-icon">📄</div>
+          <div>${filter ? 'Nenhum arquivo encontrado.' : 'Nenhum arquivo ainda.<br>Crie um novo!'}</div>
+        </div>`;
+        return;
+      }
+
+      listEl.innerHTML = names.map(name => {
+        const f = files[name];
+        const size = new Blob([f.content]).size;
+        const isActive = name === currentFile ? ' active' : '';
+        return `<div class="file-item${isActive}" onclick="openFile('${name.replace(/'/g, "\\'")}')">
+          <div class="file-icon">📄</div>
+          <div class="file-meta">
+            <div class="file-name">${name}.txt</div>
+            <div class="file-date">${formatDate(f.updatedAt)}</div>
+          </div>
+          <div class="file-size-badge">${formatSize(size)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Update header stats ──
+    function updateStats() {
+      const names = Object.keys(files);
+      const totalSize = names.reduce((acc, n) => acc + new Blob([files[n].content]).size, 0);
+      document.getElementById('statTotal').textContent = names.length;
+      document.getElementById('statSize').textContent = formatSize(totalSize);
+    }
+
+    // ── Editor stats ──
+    function updateEditorStats() {
+      const val = document.getElementById('editor').value;
+      const lines = val ? val.split('\n').length : 0;
+      const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+      const chars = val.length;
+      const size = new Blob([val]).size;
+      document.getElementById('statLines').textContent = lines;
+      document.getElementById('statWords').textContent = words;
+      document.getElementById('statChars').textContent = chars;
+      document.getElementById('statFileSize').textContent = formatSize(size);
+    }
+
+    // ── Open file ──
+    function openFile(name) {
+      if (unsaved && currentFile) {
+        // Auto-save before switching
+        saveCurrentFile(true);
+      }
+      currentFile = name;
+      const f = files[name];
+      document.getElementById('welcomeScreen').style.display = 'none';
+      const panel = document.getElementById('editorPanel');
+      panel.style.display = 'flex';
+      document.getElementById('editor').value = f.content;
+      document.getElementById('fileTitleDisplay').textContent = name + '.txt';
+      document.getElementById('saveStatus').textContent = 'salvo';
+      document.getElementById('saveStatus').style.color = 'var(--muted)';
+      unsaved = false;
+      updateEditorStats();
+      renderFileList(document.getElementById('searchInput').value);
+    }
+
+    // ── Save current file ──
+    function saveCurrentFile(silent = false) {
+      if (!currentFile) return;
+      const content = document.getElementById('editor').value;
+      files[currentFile].content = content;
+      files[currentFile].updatedAt = new Date().toISOString();
+      saveStorage();
+      unsaved = false;
+      document.getElementById('saveStatus').textContent = 'salvo às ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      document.getElementById('saveStatus').style.color = 'var(--accent)';
+      renderFileList(document.getElementById('searchInput').value);
+      updateStats();
+      if (!silent) showToast('Arquivo salvo com sucesso!');
+    }
+
+    // ── Create file ──
+    function createFile() {
+      const rawName = document.getElementById('newFileName').value.trim();
+      const content = document.getElementById('newFileContent').value;
+
+      if (!rawName) { showToast('Informe um nome para o arquivo.', 'error'); return; }
+
+      const name = slugify(rawName);
+      if (!name) { showToast('Nome inválido.', 'error'); return; }
+      if (files[name]) { showToast('Já existe um arquivo com esse nome.', 'error'); return; }
+
+      const now = new Date().toISOString();
+      files[name] = { content, createdAt: now, updatedAt: now };
+      saveStorage();
+      closeNewModal();
+      updateStats();
+      renderFileList();
+      openFile(name);
+      showToast('Arquivo criado com sucesso!');
+    }
+
+    // ── Delete file ──
+    function confirmDelete() {
+      if (!currentFile) return;
+      document.getElementById('confirmMsg').textContent = `"${currentFile}.txt" será excluído permanentemente.`;
+      document.getElementById('confirmOverlay').classList.add('show');
+    }
+
+    function closeConfirm() {
+      document.getElementById('confirmOverlay').classList.remove('show');
+    }
+
+    function deleteCurrentFile() {
+      if (!currentFile) return;
+      const name = currentFile;
+      delete files[name];
+      saveStorage();
+      currentFile = null;
+      unsaved = false;
+      closeConfirm();
+      document.getElementById('welcomeScreen').style.display = 'flex';
+      document.getElementById('editorPanel').style.display = 'none';
+      updateStats();
+      renderFileList(document.getElementById('searchInput').value);
+      showToast(`"${name}.txt" excluído.`, 'warn');
+    }
+
+    // ── Export file ──
+    function exportFile() {
+      if (!currentFile) return;
+      const content = files[currentFile].content;
+      const blob = new Blob(['\ufeff' + content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentFile + '.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Arquivo exportado!');
+    }
+
+    // ── Modal New ──
+    function openNewModal() {
+      document.getElementById('newFileName').value = '';
+      document.getElementById('newFileContent').value = '';
+      document.getElementById('newModal').classList.add('show');
+      setTimeout(() => document.getElementById('newFileName').focus(), 100);
+    }
+
+    function closeNewModal() {
+      document.getElementById('newModal').classList.remove('show');
+    }
+
+    // ── Editor events ──
+    document.getElementById('editor').addEventListener('input', () => {
+      unsaved = true;
+      document.getElementById('saveStatus').textContent = 'não salvo';
+      document.getElementById('saveStatus').style.color = 'var(--warn)';
+      updateEditorStats();
+    });
+
+    // Ctrl+S to save
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (currentFile) saveCurrentFile();
+      }
+      if (e.key === 'n' && e.target === document.body) {
+        e.preventDefault();
+        openNewModal();
+      }
+      if (e.key === 'Escape') {
+        closeNewModal();
+        closeConfirm();
+      }
+    });
+
+    // Enter to confirm new file modal
+    document.getElementById('newFileName').addEventListener('keydown', e => {
+      if (e.key === 'Enter') createFile();
+    });
+
+    // Search
+    document.getElementById('searchInput').addEventListener('input', function() {
+      renderFileList(this.value);
+    });
+
+    // ── Init ──
+    loadStorage();
+    updateStats();
+    renderFileList();
+  </script>
+</body>
+</html>
